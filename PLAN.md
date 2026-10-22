@@ -8,56 +8,57 @@
 
 | Besoin | Réponse retenue |
 |---|---|
-| Site **privé**, ~30 membres (familles) | Contrôle d'accès par courriel (liste blanche), sans mot de passe à gérer |
+| Site **privé** : consultation réservée aux ~30 courriels autorisés d'avance | Cloudflare Access, liste blanche de courriels, connexion par code à usage unique (§3) |
 | **Babillard** de nouvelles, du plus récent au plus ancien | Nouvelles en fichiers Markdown, triées par date à la compilation |
-| Mécanisme **simple** pour publier | Interface d'édition web (formulaire : titre, date, texte, image) — aucun code, **aucun compte GitHub requis** pour les animateurs |
-| **Photos** des événements via Proton Drive | Lien de partage Proton Drive, consultation **et dépôt** par les parents (l'intégration dans la page est impossible, voir §4) |
-| Coût | 0 $ (hors nom de domaine optionnel, ~15 $/an) |
+| Mécanisme **simple** pour publier | Pages CMS : formulaire web, animateurs invités par courriel, **sans compte GitHub** |
+| **Photos** des événements via Proton Drive | Un bouton qui ouvre le dossier Proton Drive partagé avec permission de modifier (consultation + dépôt) |
+| **Protection antirobot** | Défense en couches (§5) |
+| Coût | 0 $ (adresse gratuite `*.pages.dev`) |
 
-## 2. Architecture recommandée
+## 2. Architecture
 
 ```
-Parents (navigateur)
-   │  courriel → code à usage unique
+Visiteur (navigateur)
+   │  courriel → code à usage unique (envoyé seulement si le courriel est autorisé)
    ▼
-Cloudflare Access  ── liste blanche des ~30 courriels (gratuit jusqu'à 50 utilisateurs)
+Cloudflare Access  ── liste blanche des courriels (gratuit jusqu'à 50 utilisateurs)
    ▼
-Cloudflare Pages   ── site statique (Astro) recompilé à chaque publication
-   ▲
+Cloudflare Pages   ── site statique (Astro) sur maalhakws.pages.dev
+   ▲                  recompilé à chaque publication (~1 min)
 GitHub (ce dépôt)  ── nouvelles = fichiers src/content/nouvelles/*.md
    ▲
-Pages CMS          ── formulaire web pour les animateurs qui publient
+Pages CMS          ── formulaire web des animateurs (collaborateurs invités par courriel)
 ```
 
 **Pourquoi ce choix**
 - **Statique** : rien à maintenir côté serveur, pas de base de données, pas de faille d'application à corriger.
-- **Cloudflare Access** : vraie protection (le contenu n'est jamais servi sans authentification), connexion par code envoyé par courriel — idéal pour des parents non techniques. Ajouter/retirer une famille = modifier une liste.
-- **Pages CMS** (pagescms.org, gratuit, open source) : les responsables publient via un formulaire; chaque publication crée un commit et déclenche un redéploiement (~1 min). Historique et retour arrière gratuits grâce à Git.
-- **Animateurs sans compte GitHub** : Pages CMS permet d'inviter des *collaborateurs par courriel* ([doc](https://pagescms.org/docs/configuration/collaborators/)). Ils reçoivent un lien de connexion par courriel et peuvent modifier nouvelles, albums et images. Seul l'administrateur (toi) a besoin d'un compte GitHub.
+- **Cloudflare Access** : le contenu n'est jamais servi sans authentification; ajouter ou retirer une famille = modifier une liste.
+- **Pages CMS** (pagescms.org, gratuit, open source) : chaque publication crée un commit (historique et retour arrière gratuits). Les animateurs sont invités comme *collaborateurs par courriel* ([doc](https://pagescms.org/docs/configuration/collaborators/)) : ils reçoivent un lien de connexion par courriel et peuvent modifier les nouvelles et les images. Seul l'administrateur a besoin d'un compte GitHub (pour configurer et inviter).
+- **Plan B** si Pages CMS ne convient pas : page `/admin` maison (Cloudflare Pages Functions) protégée par une règle Access réservée aux animateurs. Les nouvelles restent des fichiers Markdown dans le dépôt, donc rien n'est perdu.
 
-**Options de publication comparées**
+## 3. Accès réservé aux courriels autorisés d'avance
 
-| Option | Compte requis pour publier | Complexité | Remarque |
-|---|---|---|---|
-| **Pages CMS + collaborateurs par courriel** (retenu) | Courriel seulement | Faible | Service tiers gratuit; dépendance à pagescms.org |
-| Page `/admin` maison (Cloudflare Pages Functions + base D1), protégée par une règle Access réservée aux animateurs | Même code par courriel que le reste du site | Moyenne (+1 j) | Tout chez Cloudflare, aucun tiers; plus de code à maintenir |
-| Decap CMS + DecapBridge | Courriel + mot de passe | Faible | Autre service tiers, offre gratuite limitée |
-| Comptes GitHub gratuits | GitHub | Faible | Écarté à ta demande |
+**Mécanisme : Cloudflare Access (Zero Trust, forfait gratuit ≤ 50 utilisateurs) + méthode « One-time PIN ».**
 
-Plan B si Pages CMS disparaît : la page `/admin` maison (les nouvelles restent des fichiers Markdown dans le dépôt, donc rien n'est perdu).
+1. Le visiteur arrive sur le site → Cloudflare affiche une page de connexion **avant** de servir quoi que ce soit.
+2. Il saisit son courriel. **Le code n'est envoyé que si le courriel figure dans la politique d'accès** ; sinon rien n'est envoyé, mais la page affiche le même message, ce qui empêche de deviner quels courriels sont inscrits ([doc Cloudflare](https://developers.cloudflare.com/cloudflare-one/integrations/identity-providers/one-time-pin/)).
+3. Avec le code reçu, il obtient une session (durée proposée : 1 mois).
 
-**Alternatives écartées**
-- *Mot de passe partagé unique* (ex. Cloudflare Pages + en-tête Basic Auth) : plus simple mais fuit facilement, impossible de révoquer une seule famille. Acceptable en plan B.
-- *WordPress / Wix privé* : hébergement payant ou maintenance (mises à jour, extensions).
-- *Google Sites* : gratuit et privé, mais exige un compte Google pour chaque famille.
+**Configuration**
+- Politique *Allow* → *Include* → *Emails* : liste des courriels des familles et des animateurs (2 parents par famille possibles : ~30 familles × 1–2 courriels; rester sous **50 utilisateurs**, sinon 7 $/utilisateur/mois).
+- Option pratique : une *Access List* (liste réutilisable) « Familles 2026-2027 », plus simple à mettre à jour.
+- Protéger **à la fois** `maalhakws.pages.dev` **et** les aperçus de déploiement (`*.maalhakws.pages.dev`) : Cloudflare Pages → *Settings* → *Enable access policy*, puis modifier l'application Access créée pour couvrir aussi le domaine principal (procédure décrite dans les [problèmes connus de Pages](https://developers.cloudflare.com/pages/platform/known-issues/)).
+- Si un domaine personnalisé est ajouté plus tard : l'ajouter à Pages **avant** de lui appliquer la politique Access (limitation documentée).
 
-## 3. Structure du site
+**Vérifications prévues** : courriel autorisé → code reçu et accès; courriel non autorisé → aucun code; URL d'aperçu non protégée → refusée; fichiers directs (`/photos`, images, `robots.txt`) → tous derrière Access.
+
+## 4. Structure du site
 
 ```
 /                 Accueil : mot de bienvenue + 3 dernières nouvelles + bouton « Photos »
 /nouvelles        Babillard complet, du plus récent au plus ancien (pagination à 10)
 /nouvelles/[slug] Nouvelle individuelle
-/photos           Liste des albums d'événements (liens Proton Drive)
+/photos           Bouton « Voir et déposer les photos » + consignes
 /infos            Calendrier, coordonnées des animateurs, matériel à apporter (optionnel)
 ```
 
@@ -75,88 +76,95 @@ Rendez-vous samedi 9 h au chalet. Apportez bottes et collation !
 
 Tri : `getCollection('nouvelles')` puis tri décroissant sur `date` (les nouvelles épinglées d'abord).
 
-Albums photos (`src/content/albums.json`, aussi éditable dans Pages CMS) :
+Réglages du site (`src/content/reglages.json`, éditable dans Pages CMS) :
 
 ```json
-[{ "titre": "Camp d'automne 2026", "date": "2026-10-18", "lien": "https://drive.proton.me/urls/XXXX#YYYY" }]
+{ "lienPhotos": "https://drive.proton.me/urls/XXXX#YYYY", "motDePassePhotos": "…" }
 ```
 
-## 4. Proton Drive — faisabilité
+## 5. Protection antirobot
+
+| Couche | Effet | Coût |
+|---|---|---|
+| **Cloudflare Access** (§3) | Aucun robot ne voit le contenu, le lien Proton ni les adresses courriel : seule la page de connexion est publique | Inclus |
+| **Code envoyé seulement aux courriels autorisés** | Un robot ne peut pas utiliser le formulaire pour faire envoyer des courriels à des inconnus ni deviner les inscrits | Inclus |
+| **Non-indexation** : `robots.txt` (`Disallow: /`), balise `<meta name="robots" content="noindex, nofollow, noarchive">`, en-tête `X-Robots-Tag` via le fichier `_headers` | Les moteurs de recherche et robots d'IA respectueux n'indexent rien, même en cas d'erreur de configuration | Inclus |
+| **Lien Proton protégé par mot de passe** + repartage désactivé | Si le lien fuit, il reste inutilisable sans le mot de passe | Inclus |
+| **Aucun formulaire public** sur le site | Rien à polluer par des robots (pas de contact, pas d'inscription en ligne) | — |
+| *Si un formulaire public est ajouté un jour* (ex. demande d'accès) : **Cloudflare Turnstile** | CAPTCHA invisible, gratuit | Gratuit |
+| *Si un domaine personnalisé est ajouté* : **Bot Fight Mode**, blocage des robots d'IA, règle de limitation de débit | Filtrage des robots au niveau de Cloudflare (ces réglages s'appliquent à un domaine à soi, pas à `*.pages.dev`) | Gratuit |
+
+## 6. Proton Drive
 
 **Intégration (« embed ») dans une page du site (`iframe`) : ❌ impossible.**
 - En-tête renvoyé par `https://drive.proton.me/urls/...` (vérifié le 2026-10-21) :
   `Content-Security-Policy: frame-ancestors https://mail.proton.me https://calendar.proton.me https://drive.proton.me`.
-- Test réel dans Chromium (2026-10-22), page contenant `<iframe src="https://drive.proton.me/urls/...">` :
-  `Refused to frame 'https://drive.proton.me/' because an ancestor violates the following Content Security Policy directive: "frame-ancestors https://mail.proton.me https://calendar.proton.me https://drive.proton.me".`
-- Proton n'autorise l'affichage intégré que sur ses propres domaines; aucune option ne permet de l'activer pour un autre site.
+- Test réel dans Chromium (2026-10-22) : `Refused to frame 'https://drive.proton.me/' because an ancestor violates the following Content Security Policy directive …`.
+- L'affichage des photos dans nos pages via API est aussi irréaliste (fichiers chiffrés de bout en bout, déchiffrés seulement dans l'application Proton).
 
-**Affichage des photos dans notre page via API : ❌ non réaliste.**
-Proton Drive est chiffré de bout en bout; la clé de déchiffrement est dans le fragment `#...` du lien et les fichiers ne sont déchiffrés que dans l'application Proton. Il n'existe pas d'URL d'image directe exploitable par une balise `<img>`, et utiliser le SDK pour déchiffrer dans notre site serait complexe et fragile.
+**Solution retenue : ✅ un bouton vers le dossier partagé avec permission de modifier** ([doc Proton](https://proton.me/support/drive-shareable-link)).
+1. Dans Proton Drive, créer un dossier `Meute Maalhakws – Photos` (sous-dossiers par événement au besoin).
+2. *Partager → Créer un lien public → accès* **Éditeur**; activer un **mot de passe**; **désactiver le repartage** par les éditeurs; date d'expiration à la fin de l'année scoute.
+3. Coller le lien et le mot de passe dans les réglages (Pages CMS). La page `/photos` affiche un gros bouton « Voir et déposer les photos » (nouvel onglet) et le mot de passe, visibles seulement par les personnes connectées.
 
-**Solution retenue : ✅ lien de partage par événement.**
-1. Dans Proton Drive, créer un dossier par événement (ex. `Meute/2026-10 Camp automne`).
-2. *Partager → Créer un lien public*; activer un **mot de passe** sur le lien et, si souhaité, une **date d'expiration**.
-3. Coller le lien dans la page `/photos` (via Pages CMS). Une carte avec titre, date et une photo de couverture (hébergée dans le dépôt) ouvre l'album dans un nouvel onglet.
-4. Le mot de passe de l'album est indiqué uniquement sur le site (déjà protégé par Cloudflare Access) → double protection.
+**À savoir**
+- Les parents consultent et déposent **sans compte Proton**; chacun ne peut supprimer ou renommer **que ses propres fichiers**.
+- Les dépôts comptent dans l'espace de stockage du propriétaire du compte : surveiller le quota (photo de téléphone ≈ 3–5 Mo).
+- Forfait Drive gratuit : 3 liens Éditeur maximum — un seul est nécessaire ici.
+- Les visiteurs du lien voient l'identité (compte Proton) de la personne qui partage.
 
-**Dépôt de photos par les parents : ✅ possible** ([doc Proton](https://proton.me/support/drive-shareable-link)).
-- À la création du lien public, choisir l'accès **Éditeur** : les parents peuvent téléverser dans le dossier **sans compte Proton**.
-- Ils ne peuvent supprimer ou renommer **que leurs propres fichiers**.
-- Les dépôts comptent dans **ton** espace de stockage Proton : surveiller le quota (photos de téléphone ≈ 3–5 Mo chacune).
-- Forfait Drive gratuit : **3 liens Éditeur maximum** → réutiliser un même dossier « Dépôt » ou passer à un forfait payant.
-- Par défaut, un éditeur peut repartager le dossier : **désactiver cette option** dans les paramètres du lien.
-- Les déposants voient l'identité (compte Proton) de la personne qui partage.
-- Recommandation : un lien **Lecteur** par album pour consulter, et un lien **Éditeur** distinct pour déposer; tu tries ensuite les dépôts dans les albums.
-
-## 5. Étapes de réalisation
+## 7. Étapes de réalisation
 
 | # | Étape | Livrable | Effort |
 |---|---|---|---|
-| 1 | Initialiser Astro + thème simple (couleurs de la meute, logo, responsive mobile) | Squelette déployable | 0,5 j |
+| 1 | Initialiser Astro + thème (couleurs, logotype, police Nunito, mobile d'abord) | Squelette déployable | 0,5 j |
 | 2 | Collection `nouvelles` + pages Accueil / Babillard / Nouvelle, tri décroissant, épinglage, pagination | Babillard fonctionnel | 0,5 j |
-| 3 | Page `/photos` alimentée par `albums.json` | Cartes d'albums | 0,25 j |
-| 4 | Configurer Pages CMS (`.pages.yml`) : formulaires « Nouvelle » et « Album », téléversement d'images; inviter les animateurs comme collaborateurs par courriel | Publication sans code | 0,25 j |
-| 5 | Déploiement Cloudflare Pages (branche `main`) sur `maalhakws.pages.dev` (ou nom disponible) | Site en ligne | 0,25 j |
-| 6 | Cloudflare Zero Trust → Access : application sur `*.pages.dev` (inclure aussi les aperçus de déploiement), politique « Emails » avec la liste des familles, méthode « One-time PIN »; durée de session 1 mois | Site privé | 0,25 j |
-| 7 | Tests : connexion d'un parent test, publication d'une nouvelle, ouverture d'un album, mobile | Validation | 0,25 j |
-| 8 | Guide d'une page pour les animateurs (publier une nouvelle, ajouter un album, ajouter une famille) | `GUIDE.md` | 0,25 j |
+| 3 | Page `/photos` (bouton Proton + mot de passe) alimentée par `reglages.json` | Accès photos | 0,1 j |
+| 4 | Non-indexation : `robots.txt`, balise meta, `_headers` (`X-Robots-Tag`, en-têtes de sécurité) | Couche antirobot | 0,1 j |
+| 5 | Pages CMS (`.pages.yml`) : formulaires « Nouvelle » et « Réglages », téléversement d'images; inviter les animateurs par courriel | Publication sans code | 0,25 j |
+| 6 | Déploiement Cloudflare Pages (branche `main`) sur `maalhakws.pages.dev` (ou nom disponible) | Site en ligne | 0,25 j |
+| 7 | Cloudflare Access : application sur le domaine principal + aperçus, politique « Emails » (liste blanche), One-time PIN, session 1 mois | Site privé | 0,25 j |
+| 8 | Tests (voir §3 *Vérifications*), publication d'une nouvelle, dépôt d'une photo, mobile | Validation | 0,25 j |
+| 9 | Guide d'une page pour les animateurs (publier, changer le lien photos, ajouter/retirer une famille) | `GUIDE.md` | 0,25 j |
 
 **Total estimé : ~2,5 jours.**
 
-## 6. Exploitation courante
+> Important : ne pas communiquer l'adresse du site avant la fin de l'étape 7. Entre les étapes 6 et 7, le site est public.
 
-- **Publier une nouvelle** : pagescms.org → « Nouvelles » → *Ajouter* → *Enregistrer*. En ligne en ~1 minute.
-- **Ajouter un album** : créer le lien Proton Drive → Pages CMS → « Albums » → coller le lien.
-- **Ajouter/retirer une famille** : Cloudflare Zero Trust → Access → Politique → liste des courriels.
-- **Fin d'année** : retirer les courriels des familles sortantes; faire expirer les anciens liens d'albums.
+## 8. Exploitation courante
 
-## 7. Confidentialité (photos d'enfants)
+- **Publier une nouvelle** : app.pagescms.org → « Nouvelles » → *Ajouter* → *Enregistrer*. En ligne en ~1 minute.
+- **Changer le lien ou le mot de passe des photos** : Pages CMS → « Réglages ».
+- **Ajouter/retirer une famille** : Cloudflare Zero Trust → Access → liste « Familles » → ajouter/supprimer le courriel.
+- **Fin d'année** : vider la liste des familles sortantes; régénérer le lien Proton et son mot de passe.
+
+## 9. Confidentialité (photos d'enfants)
 
 - Aucun nom de famille d'enfant dans les nouvelles; prénoms seulement si nécessaire.
-- `robots.txt` + `noindex` (en plus d'Access) pour éviter tout référencement.
-- Obtenir le consentement photo des parents en début d'année; ne pas mettre d'albums sur le site pour les jeunes sans consentement.
-- Liens Proton Drive : mot de passe + expiration (ex. fin de l'année scoute).
+- Obtenir le consentement photo des parents en début d'année.
+- Rappeler sur la page `/photos` de ne pas repartager le lien ni les photos hors de la meute.
 
-## 8. Identité visuelle
+## 10. Identité visuelle
 
-Logo proposé : [`assets/logo.svg`](assets/logo.svg) — écusson rond, tête de loup géométrique sous un ciel de nuit, lune et sapins (« meute » + « plein air »), devise « Plein air · Énergie ».
+Logotype provisoire, lettrage seulement : [`assets/logo.svg`](assets/logo.svg) — « MEUTE » en petites capitales espacées (orange) au-dessus de « Maalhakws » (bleu nuit, Nunito Black), souligné vert forêt. Les lettres sont converties en tracés : rendu identique partout, sans dépendre des polices installées. Un vrai logo sera produit par le groupe et pourra le remplacer sans autre changement.
 
 | Rôle | Couleur | Code |
 |---|---|---|
-| Principale (ciel de nuit, titres) | Bleu nuit | `#1F3047` |
-| Accent (boutons, liens, anneau) | Orange feu de camp | `#E8772E` |
-| Nature (bandeaux, succès) | Vert forêt | `#2F5D3A` |
-| Mise en valeur (dates, épinglé) | Jaune lune | `#F2B53A` |
-| Texte secondaire | Brun loup | `#6B4A2B` |
+| Principale (titres, en-tête) | Bleu nuit | `#1F3047` |
+| Accent (boutons, liens) | Orange feu de camp | `#E8772E` |
+| Nature (bandeaux, soulignés) | Vert forêt | `#2F5D3A` |
+| Mise en valeur (dates, épinglé) | Jaune soleil | `#F2B53A` |
 | Fond de page | Crème | `#FFF7E8` |
 
-Police suggérée : *Nunito* (Google Fonts) — arrondie, conviviale, très lisible sur mobile.
+Police : *Nunito* (licence SIL OFL, libre d'utilisation).
 
-## 9. Décisions
+## 11. Décisions
 
 | # | Question | Décision |
 |---|---|---|
-| 1 | Adresse | Adresse gratuite `*.pages.dev` pour commencer (domaine ajoutable plus tard sans refonte) |
-| 2 | Publication | Collaborateurs Pages CMS invités par courriel — pas de compte GitHub pour les animateurs |
-| 3 | Photos | Consultation + dépôt par les parents via liens Proton (Lecteur / Éditeur); intégration dans la page impossible |
-| 4 | Logo / couleurs | Proposition générée (§8), à valider |
+| 1 | Adresse | Adresse gratuite `*.pages.dev` pour commencer |
+| 2 | Publication | Pages CMS, animateurs invités par courriel (sans compte GitHub) |
+| 3 | Photos | Un bouton vers le dossier Proton Drive partagé avec permission de modifier |
+| 4 | Logo | Logotype provisoire en lettrage seulement; logo final fourni par le groupe |
+| 5 | Accès | Liste blanche de courriels Cloudflare Access (code à usage unique) |
+| 6 | Robots | Défense en couches (§5) |

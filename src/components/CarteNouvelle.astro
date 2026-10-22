@@ -1,0 +1,24 @@
+---
+import { render } from 'astro:content';
+import { dateLisible, type Nouvelle } from '../lib/nouvelles';
+
+interface Props {
+  nouvelle: Nouvelle;
+  complete?: boolean;
+}
+
+const { nouvelle, complete = false } = Astro.props;
+const { titre, date, epingle, image } = nouvelle.data;
+const { Content } = await render(nouvelle);
+const lien = `/nouvelles/${nouvelle.id}`;
+---
+
+<article class:list={['carte', { epinglee: epingle }]}>
+  {complete ? <h1>{titre}</h1> : <h2><a href={lien}>{titre}</a></h2>}
+  <p class="meta">
+    <time datetime={date.toISOString().slice(0, 10)}>{dateLisible(date)}</time>
+    {epingle && <span class="badge">Épinglée</span>}
+  </p>
+  {image && <img src={image} alt="" loading="lazy" />}
+  <Content />
+</article>

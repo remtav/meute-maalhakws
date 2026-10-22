@@ -13,6 +13,7 @@
 | Mécanisme **simple** pour publier | Pages CMS : formulaire web, animateurs invités par courriel, **sans compte GitHub** |
 | **Photos** des événements via Proton Drive | Un bouton qui ouvre le dossier Proton Drive partagé avec permission de modifier (consultation + dépôt) |
 | **Protection antirobot** | Défense en couches (§5) |
+| **Alerte d'activité inhabituelle** | Google Analytics 4 + alertes personnalisées (§5 bis) |
 | Coût | 0 $ (adresse gratuite `*.pages.dev`) |
 
 ## 2. Architecture
@@ -76,10 +77,10 @@ Rendez-vous samedi 9 h au chalet. Apportez bottes et collation !
 
 Tri : `getCollection('nouvelles')` puis tri décroissant sur `date` (les nouvelles épinglées d'abord).
 
-Réglages du site (`src/content/reglages.json`, éditable dans Pages CMS) :
+Réglages du site (`src/data/reglages.json`, éditable dans Pages CMS) :
 
 ```json
-{ "lienPhotos": "https://drive.proton.me/urls/XXXX#YYYY", "motDePassePhotos": "…" }
+{ "lienPhotos": "https://drive.proton.me/urls/XXXX#YYYY" }
 ```
 
 ## 5. Protection antirobot
@@ -89,10 +90,20 @@ Réglages du site (`src/content/reglages.json`, éditable dans Pages CMS) :
 | **Cloudflare Access** (§3) | Aucun robot ne voit le contenu, le lien Proton ni les adresses courriel : seule la page de connexion est publique | Inclus |
 | **Code envoyé seulement aux courriels autorisés** | Un robot ne peut pas utiliser le formulaire pour faire envoyer des courriels à des inconnus ni deviner les inscrits | Inclus |
 | **Non-indexation** : `robots.txt` (`Disallow: /`), balise `<meta name="robots" content="noindex, nofollow, noarchive">`, en-tête `X-Robots-Tag` via le fichier `_headers` | Les moteurs de recherche et robots d'IA respectueux n'indexent rien, même en cas d'erreur de configuration | Inclus |
-| **Lien Proton protégé par mot de passe** + repartage désactivé | Si le lien fuit, il reste inutilisable sans le mot de passe | Inclus |
+| **Lien Proton visible seulement après connexion** + repartage désactivé | Le lien n'apparaît que derrière Access (pas de mot de passe Proton, décision §11) | Inclus |
 | **Aucun formulaire public** sur le site | Rien à polluer par des robots (pas de contact, pas d'inscription en ligne) | — |
 | *Si un formulaire public est ajouté un jour* (ex. demande d'accès) : **Cloudflare Turnstile** | CAPTCHA invisible, gratuit | Gratuit |
 | *Si un domaine personnalisé est ajouté* : **Bot Fight Mode**, blocage des robots d'IA, règle de limitation de débit | Filtrage des robots au niveau de Cloudflare (ces réglages s'appliquent à un domaine à soi, pas à `*.pages.dev`) | Gratuit |
+
+## 5 bis. Google Analytics — alerte d'activité inhabituelle
+
+- GA4 est chargé **seulement si la variable `PUBLIC_GA_ID`** (ex. `G-XXXXXXX`) est définie dans Cloudflare Pages, et **seulement après consentement** du visiteur (bandeau Accepter/Refuser, exigence de la Loi 25 au Québec). Le choix est modifiable au pied de page.
+- **Alertes** : GA4 → *Rapports* → *Insights* → *Créer* une alerte personnalisée, avec notification courriel. Exemples :
+  - « Utilisateurs actifs » quotidiens **> 40** (plus de visiteurs que de familles);
+  - **Anomalie** détectée sur les utilisateurs ou les pages vues (GA4 compare à l'historique);
+  - Utilisateurs provenant d'un **pays autre que le Canada**.
+- **Limites** : GA ne voit que les visiteurs *déjà connectés* et *ayant accepté*; les tentatives de connexion refusées n'atteignent jamais le site. Compléter avec les **journaux Cloudflare Access** (Zero Trust → *Logs* → *Access*) qui listent chaque connexion réussie ou refusée, avec courriel, adresse IP et pays.
+- Le CSP du fichier `_headers` autorise uniquement les domaines Google nécessaires à GA4.
 
 ## 6. Proton Drive
 
@@ -104,8 +115,10 @@ Réglages du site (`src/content/reglages.json`, éditable dans Pages CMS) :
 
 **Solution retenue : ✅ un bouton vers le dossier partagé avec permission de modifier** ([doc Proton](https://proton.me/support/drive-shareable-link)).
 1. Dans Proton Drive, créer un dossier `Meute Maalhakws – Photos` (sous-dossiers par événement au besoin).
-2. *Partager → Créer un lien public → accès* **Éditeur**; activer un **mot de passe**; **désactiver le repartage** par les éditeurs; date d'expiration à la fin de l'année scoute.
-3. Coller le lien et le mot de passe dans les réglages (Pages CMS). La page `/photos` affiche un gros bouton « Voir et déposer les photos » (nouvel onglet) et le mot de passe, visibles seulement par les personnes connectées.
+2. *Partager → Créer un lien public → accès* **Éditeur**; **pas de mot de passe** (la protection par courriel du site suffit); **désactiver le repartage** par les éditeurs; date d'expiration à la fin de l'année scoute (optionnel).
+3. Coller le lien dans les réglages (Pages CMS). La page `/photos` affiche un gros bouton « Voir et déposer les photos » (nouvel onglet), visible seulement par les personnes connectées.
+
+> Sans mot de passe, quiconque obtient le lien Proton peut voir et déposer des photos. Si le lien fuit : le régénérer dans Proton Drive et le remplacer dans Pages CMS.
 
 **À savoir**
 - Les parents consultent et déposent **sans compte Proton**; chacun ne peut supprimer ou renommer **que ses propres fichiers**.
@@ -119,8 +132,8 @@ Réglages du site (`src/content/reglages.json`, éditable dans Pages CMS) :
 |---|---|---|---|
 | 1 | Initialiser Astro + thème (couleurs, logotype, police Nunito, mobile d'abord) | Squelette déployable | 0,5 j |
 | 2 | Collection `nouvelles` + pages Accueil / Babillard / Nouvelle, tri décroissant, épinglage, pagination | Babillard fonctionnel | 0,5 j |
-| 3 | Page `/photos` (bouton Proton + mot de passe) alimentée par `reglages.json` | Accès photos | 0,1 j |
-| 4 | Non-indexation : `robots.txt`, balise meta, `_headers` (`X-Robots-Tag`, en-têtes de sécurité) | Couche antirobot | 0,1 j |
+| 3 | Page `/photos` (bouton Proton) alimentée par `reglages.json` | Accès photos | 0,1 j |
+| 4 | Non-indexation : `robots.txt`, balise meta, `_headers` (`X-Robots-Tag`, en-têtes de sécurité) + Google Analytics avec consentement | Couche antirobot + suivi | 0,25 j |
 | 5 | Pages CMS (`.pages.yml`) : formulaires « Nouvelle » et « Réglages », téléversement d'images; inviter les animateurs par courriel | Publication sans code | 0,25 j |
 | 6 | Déploiement Cloudflare Pages (branche `main`) sur `maalhakws.pages.dev` (ou nom disponible) | Site en ligne | 0,25 j |
 | 7 | Cloudflare Access : application sur le domaine principal + aperçus, politique « Emails » (liste blanche), One-time PIN, session 1 mois | Site privé | 0,25 j |
@@ -134,9 +147,10 @@ Réglages du site (`src/content/reglages.json`, éditable dans Pages CMS) :
 ## 8. Exploitation courante
 
 - **Publier une nouvelle** : app.pagescms.org → « Nouvelles » → *Ajouter* → *Enregistrer*. En ligne en ~1 minute.
-- **Changer le lien ou le mot de passe des photos** : Pages CMS → « Réglages ».
+- **Changer le lien des photos** : Pages CMS → « Réglages ».
 - **Ajouter/retirer une famille** : Cloudflare Zero Trust → Access → liste « Familles » → ajouter/supprimer le courriel.
-- **Fin d'année** : vider la liste des familles sortantes; régénérer le lien Proton et son mot de passe.
+- **Fin d'année** : vider la liste des familles sortantes; régénérer le lien Proton.
+- **Alerte GA reçue** : consulter les journaux Cloudflare Access pour identifier le courriel en cause; le retirer de la liste au besoin et régénérer le lien Proton.
 
 ## 9. Confidentialité (photos d'enfants)
 
@@ -165,6 +179,21 @@ Police : *Nunito* (licence SIL OFL, libre d'utilisation).
 | 1 | Adresse | Adresse gratuite `*.pages.dev` pour commencer |
 | 2 | Publication | Pages CMS, animateurs invités par courriel (sans compte GitHub) |
 | 3 | Photos | Un bouton vers le dossier Proton Drive partagé avec permission de modifier |
-| 4 | Logo | Logotype provisoire en lettrage seulement; logo final fourni par le groupe |
+| 4 | Logo | Logotype en lettrage validé; logo final éventuel fourni par le groupe |
 | 5 | Accès | Liste blanche de courriels Cloudflare Access (code à usage unique) |
 | 6 | Robots | Défense en couches (§5) |
+| 7 | Mot de passe Proton | Aucun : la protection par courriel suffit |
+| 8 | Suivi | Google Analytics 4 avec alertes (§5 bis) |
+
+## 12. Avancement
+
+| # | Étape | État |
+|---|---|---|
+| 1 | Squelette Astro, thème, logotype, Nunito | ✅ fait |
+| 2 | Babillard (tri, épinglage, pagination à 10) | ✅ fait |
+| 3 | Page `/photos` | ✅ fait |
+| 4 | Non-indexation, en-têtes, Google Analytics avec consentement | ✅ fait |
+| 5 | Configuration Pages CMS (`.pages.yml`) | ✅ fichier prêt — connexion du dépôt à faire (compte administrateur) |
+| 6–7 | Cloudflare Pages + Access | ⏳ à faire par l'administrateur (voir `GUIDE.md`) |
+| 8 | Tests de bout en bout | ⏳ après 6–7 |
+| 9 | Guide des animateurs | ✅ `GUIDE.md` |

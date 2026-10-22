@@ -1,0 +1,76 @@
+# Configuration de Pages CMS (https://pagescms.org/docs/configuration/)
+media:
+  input: public/uploads
+  output: /uploads
+  extensions: [jpg, jpeg, png, webp, gif]
+
+content:
+  - name: nouvelles
+    label: Nouvelles
+    type: collection
+    path: src/content/nouvelles
+    filename: "{year}-{month}-{day}-{primary}.md"
+    view:
+      fields: [titre, date, epingle]
+      primary: titre
+      sort: [date, titre]
+      default:
+        sort: date
+        order: desc
+    fields:
+      - name: titre
+        label: Titre
+        type: string
+        required: true
+      - name: date
+        label: Date
+        type: date
+        required: true
+        options:
+          format: yyyy-MM-dd
+      - name: epingle
+        label: Épingler en haut du babillard
+        type: boolean
+        default: false
+      - name: image
+        label: Image (optionnelle)
+        type: image
+      - name: body
+        label: Texte
+        type: rich-text
+
+  - name: accueil
+    label: Mot de bienvenue
+    type: file
+    path: src/content/pages/accueil.md
+    fields:
+      - name: titre
+        label: Titre
+        type: string
+        required: true
+      - name: body
+        label: Texte
+        type: rich-text
+
+  - name: infos
+    label: Infos pratiques
+    type: file
+    path: src/content/pages/infos.md
+    fields:
+      - name: titre
+        label: Titre
+        type: string
+        required: true
+      - name: body
+        label: Texte
+        type: rich-text
+
+  - name: reglages
+    label: Réglages
+    type: file
+    path: src/data/reglages.json
+    format: json
+    fields:
+      - name: lienPhotos
+        label: Lien du dossier Proton Drive (accès Éditeur)
+        type: string

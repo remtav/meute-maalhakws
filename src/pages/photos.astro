@@ -1,0 +1,28 @@
+---
+import Base from '../layouts/Base.astro';
+import reglages from '../data/reglages.json';
+
+const lien = reglages.lienPhotos?.trim();
+---
+
+<Base titre="Photos">
+  <h1>Photos</h1>
+  <section class="carte">
+    <p>
+      Les photos des événements sont rangées dans un dossier Proton Drive partagé avec la meute.
+      Vous pouvez les consulter, les télécharger et <strong>ajouter les vôtres</strong>, sans créer de compte.
+    </p>
+    {lien ? (
+      <p><a class="bouton" href={lien} target="_blank" rel="noopener noreferrer">Voir et déposer les photos</a></p>
+    ) : (
+      <p><em>Le lien vers les photos sera ajouté bientôt.</em></p>
+    )}
+    <h2>Quelques consignes</h2>
+    <ul>
+      <li>Déposez vos photos dans le sous-dossier de l'événement.</li>
+      <li>Vous pouvez supprimer ou renommer seulement les photos que vous avez déposées.</li>
+      <li>Ne partagez pas le lien ni les photos hors de la meute.</li>
+      <li>Respectez le choix des familles qui ne souhaitent pas que leur enfant soit photographié.</li>
+    </ul>
+  </section>
+</Base>

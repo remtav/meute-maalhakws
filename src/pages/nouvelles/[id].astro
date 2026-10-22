@@ -1,0 +1,24 @@
+---
+import type { GetStaticPaths } from 'astro';
+import Base from '../../layouts/Base.astro';
+import CarteNouvelle from '../../components/CarteNouvelle.astro';
+import { nouvellesTriees, type Nouvelle } from '../../lib/nouvelles';
+
+export const getStaticPaths = (async () => {
+  return (await nouvellesTriees()).map((nouvelle) => ({
+    params: { id: nouvelle.id },
+    props: { nouvelle },
+  }));
+}) satisfies GetStaticPaths;
+
+interface Props {
+  nouvelle: Nouvelle;
+}
+
+const { nouvelle } = Astro.props;
+---
+
+<Base titre={nouvelle.data.titre}>
+  <CarteNouvelle nouvelle={nouvelle} complete />
+  <p><a href="/nouvelles">← Retour au babillard</a></p>
+</Base>

@@ -1,0 +1,22 @@
+---
+import { getEntry, render } from 'astro:content';
+import Base from '../layouts/Base.astro';
+import CarteNouvelle from '../components/CarteNouvelle.astro';
+import { nouvellesTriees } from '../lib/nouvelles';
+
+const accueil = await getEntry('pages', 'accueil');
+const { Content } = accueil ? await render(accueil) : { Content: null };
+const recentes = (await nouvellesTriees()).slice(0, 3);
+---
+
+<Base>
+  <section class="carte bienvenue">
+    {Content && <Content />}
+    <p><a class="bouton" href="/photos">Voir et déposer les photos</a></p>
+  </section>
+
+  <h2>Dernières nouvelles</h2>
+  {recentes.length === 0 && <p>Aucune nouvelle pour le moment.</p>}
+  {recentes.map((n) => <CarteNouvelle nouvelle={n} />)}
+  <p><a href="/nouvelles">Toutes les nouvelles →</a></p>
+</Base>

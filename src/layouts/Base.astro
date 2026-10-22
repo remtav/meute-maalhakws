@@ -1,0 +1,53 @@
+---
+import '../styles/global.css';
+
+interface Props {
+  titre?: string;
+}
+
+const { titre } = Astro.props;
+const titreComplet = titre ? `${titre} · Meute Maalhakws` : 'Meute Maalhakws';
+const gaId = import.meta.env.PUBLIC_GA_ID;
+const chemin = Astro.url.pathname.replace(/\/$/, '') || '/';
+const liens = [
+  { href: '/', texte: 'Accueil' },
+  { href: '/nouvelles', texte: 'Nouvelles' },
+  { href: '/photos', texte: 'Photos' },
+  { href: '/infos', texte: 'Infos' },
+];
+const estActif = (href: string) => (href === '/' ? chemin === '/' : chemin.startsWith(href));
+---
+
+<!doctype html>
+<html lang="fr-CA">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow, noarchive" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <title>{titreComplet}</title>
+    {gaId && <script src="/js/analytics.js" data-ga-id={gaId} defer></script>}
+  </head>
+  <body>
+    <header class="entete">
+      <div class="entete-interieur">
+        <a class="entete-logo" href="/"><img src="/logo.svg" alt="Meute Maalhakws" width="142" height="52" /></a>
+        <nav class="menu" aria-label="Menu principal">
+          {liens.map((l) => <a href={l.href} aria-current={estActif(l.href) ? 'page' : undefined}>{l.texte}</a>)}
+        </nav>
+      </div>
+    </header>
+    <main>
+      <slot />
+    </main>
+    <footer class="pied">
+      <p>Site privé de la meute Maalhakws — merci de ne pas partager le contenu hors de la meute.</p>
+      {gaId && (
+        <p>
+          Ce site utilise Google Analytics pour détecter toute activité inhabituelle.
+          <button type="button" data-consentement-modifier>Gérer mon choix</button>
+        </p>
+      )}
+    </footer>
+  </body>
+</html>

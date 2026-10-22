@@ -1,0 +1,14 @@
+---
+import { getEntry, render } from 'astro:content';
+import Base from '../layouts/Base.astro';
+
+const infos = await getEntry('pages', 'infos');
+const { Content } = infos ? await render(infos) : { Content: null };
+---
+
+<Base titre="Infos">
+  <h1>{infos?.data.titre ?? 'Infos'}</h1>
+  <section class="carte">
+    {Content && <Content />}
+  </section>
+</Base>

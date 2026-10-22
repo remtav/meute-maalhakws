@@ -1,0 +1,28 @@
+---
+import type { GetStaticPaths, Page } from 'astro';
+import Base from '../../layouts/Base.astro';
+import CarteNouvelle from '../../components/CarteNouvelle.astro';
+import { nouvellesTriees, type Nouvelle } from '../../lib/nouvelles';
+
+export const getStaticPaths = (async ({ paginate }) => {
+  return paginate(await nouvellesTriees(), { pageSize: 10 });
+}) satisfies GetStaticPaths;
+
+interface Props {
+  page: Page<Nouvelle>;
+}
+
+const { page } = Astro.props;
+---
+
+<Base titre="Nouvelles">
+  <h1>Babillard</h1>
+  {page.data.length === 0 && <p>Aucune nouvelle pour le moment.</p>}
+  {page.data.map((n) => <CarteNouvelle nouvelle={n} />)}
+  {(page.url.prev || page.url.next) && (
+    <nav class="pagination" aria-label="Pages">
+      <span>{page.url.prev && <a href={page.url.prev}>← Plus récentes</a>}</span>
+      <span>{page.url.next && <a href={page.url.next}>Plus anciennes →</a>}</span>
+    </nav>
+  )}
+</Base>
